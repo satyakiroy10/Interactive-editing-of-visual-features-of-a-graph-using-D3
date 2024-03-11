@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab-4: SVG or D3: Create a Time-Dependent Views For a Climate Change Dataset</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <h1>Lab 4: CSE 5544</h1>
+    <h1>Satyaki Roy Chowdhury (chowdhury.207)</h1>
+    <svg id="scatterplot_1" width="500" height="500"></svg>
+    <button id="colormap-button-1">Colormap 1</button>
+    <button id="colormap-button-2">Colormap 2</button>
+    <button id="colormap-button-3">Colormap 3</button>
+    <button id="LAT">LAT</button>
+    <button id="LAT-cumulative">LAT Cumulative</button>
+
+
+    <script>
+        var app = async function(){
+
+        var margin = {top: 20, right: 20, bottom: 40, left: 60},
+        width = 500 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom;
+
+        width_2 = 500 - margin.left - margin.right,
+        height_2 = 500 - margin.top - margin.bottom;
+
+        var svg = d3.select("#scatterplot_1")
+                    .append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom+100)
+                    .append("g")
+                    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+        const data = await d3.json('GlobalTemperatures.json').then(function convertData(d){
+            new_ds = [];
+            function changeTime(value, index, array){
+                ds = {
+                    time: new Date(value.time.toString().slice(0, 4), 
+                            value.time.toString().slice(4, 6), 
+                            value.time.toString().slice(6, 8)),
+                    LAT: value.LAT,
+                    LATU: value.LATU,
+                    LOAT: value.LOAT,
+                    LOATU: value.LOATU
+                };
+                new_ds.push(ds);
+            }
+
+            d.forEach(changeTime);
+            return new_ds
+        });
+
+        var minLATU = d3.min(data, d => d.LATU);
+        var maxLATU = d3.max(data, d => d.LATU);
+        var avgLATU = d3.mean(data, d => d.LATU);
+
+        var minLAT = d3.min(data, d => d.LAT);
+        var maxLAT = d3.max(data, d => d.LAT);
+
+        var cxScale = d3.scaleTime()
+                .domain([new Date('1845', '01', '01'), new Date('2020', '01', '15')])
+                .range([ 0, width ]);
+
+
+        var cyScale = d3.scaleLinear()
+                .domain([minLAT, maxLAT])
+                .range([ height, 0]);
+
+        var rScale = d3.scaleSqrt()
+                .domain([0, 1.5])
+                .range([5, 20]);
+
+        var color1 = d3.scaleSequential()
+                .domain([minLATU, maxLATU])
+                .interpolator(d3.interpolate("red", "green"));
+
+        var color2 = d3.scaleLinear([minLATU, avgLATU, maxLATU], ["#d7191c", "#ffffbf", "#1a9641"]);
+
+        var color3 = d3.scaleQuantize([minLATU, maxLATU], ["#d7191c", "#fdae61", "#ffffbf", "#a6d96a", "#1a9641"]);
+
+        var xAxis = svg.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(cxScale).ticks(20));
+
+        var xLabel = svg.append("text")
+                .attr("class", "x label")
+                .attr("text-anchor", "end")
+                .attr("x", width / 2)
+                .attr("y", height + 30)
+                .text("Year")
+                .style('font-size', '14px')
+                
+        var yAxis = svg.append("g")
+                .call(d3.axisLeft(cyScale));
+
+        var YaxisLabelX = -25;
+        var YaxisLabelY = height / 2;
+
+        var yLabel = svg.append('g')
+                .attr('transform', 'translate(' + YaxisLabelX + ', ' + YaxisLabelY + ')')
+                .append('text')
+                .attr('text-anchor', 'middle')
+                .attr('transform', 'rotate(-90)')
+                .text('Land Average Temperature');
+
+                    
+        var changeColor = function(color) {
+            svg.selectAll("circle")
+                .transition()
+                .duration(3000)
+                .style("fill", function(d){ return color(d.LATU); })
+        }
+
+        var updatePlot = function(y) {
+            var min_y = 0;
+            var max_y = 0;
+            if(y == 'LAT'){
+                min_y = d3.min(data, d => d.LAT)
+                max_y = d3.max(data, d => d.LAT)
+
+                // Update Y axis
+                cyScale.domain([min_y - 2, max_y + 2]);
+                yAxis.transition().duration(3000).call(d3.axisLeft(cyScale));
+
+                yLabel.transition().duration(3000).text("Land Average Temperature")
+
+                // Update chart
+                svg.selectAll("circle")
+                .data(data)
+                .transition()
+                .duration(3000)
+                .attr("cx", function (d) { return cxScale(d.time); } )
+                .attr("cy", function (d) { return cyScale(d.LAT); } )
+                .attr("r", function(d) { return  0.8 * rScale(d.LATU); })
+            }
+            
+            if(y == 'LOAT'){
+                min_y = d3.min(data, d => d.LOAT)
+                max_y = d3.max(data, d => d.LOAT)
+
+                // Update Y axis
+                cyScale.domain([min_y - 2, max_y + 2]);
+                yAxis.transition().duration(3000).call(d3.axisLeft(cyScale));
+                yLabel.transition().duration(3000).text("Land And Ocean Average Temperature");
+
+                // Update chart
+                svg.selectAll("circle")
+                .data(data)
+                .transition()
+                .duration(3000)
+                .attr("cx", function (d) { return cxScale(d.time); } )
+                .attr("cy", function (d) { return cyScale(d.LOAT); } )
+                .attr("r", function(d) { return  0.8 * rScale(d.LOATU); })
+            }
+            
+        }
+
+        d3.select("#colormap-button-1").on("click", function() {changeColor(color1);});
+        d3.select("#colormap-button-2").on("click", function() {changeColor(color2);});
+        d3.select("#colormap-button-3").on("click", function() {changeColor(color3);});
+
+        d3.select("#LAT").on("click", function() {updatePlot('LAT');});
+        d3.select("#LAT-cumulative").on("click", function() {updatePlot('LOAT');});
+
+
+        // Default scatterplot
+        svg.append('g')
+            .selectAll("dot")
+            .data(data)
+            .enter()
+            .append("circle")
+            .attr("cx", function (d) { return cxScale(d.time); } )
+            .attr("cy", function (d) { return cyScale(d.LAT); } )
+            .attr("r", function(d) { return  0.5 * rScale(d.LATU); })
+            .attr("stroke-width", "1.5")
+            .style("fill", function(d){ return color1(d.LATU); })
+        }
+        app();
+    </script>
+</body>
+</html>
